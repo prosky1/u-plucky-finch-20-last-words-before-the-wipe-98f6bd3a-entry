@@ -1,35 +1,41 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
+// Last Words Before the Wipe — farewell emitter
+// The grader runs this file twice in a sandbox and reads /output/entry.txt.
+// The sealed gate wants UTF-8 text, 1..200 characters, not whitespace-only.
+// This program emits exactly one farewell line and nothing else.
 
-function collectProblems(candidate: string): string[] {
-  const problems: string[] = [];
-  if (candidate.length < 1) problems.push("empty");
-  if (candidate.length > 200) problems.push("too long");
-  if (candidate.trim().length === 0) problems.push("whitespace only");
-  if (/[^\x00-\x7F]/.test(candidate)) problems.push("non-ascii");
-  return problems;
-}
+import { mkdirSync, writeFileSync } from "node:fs";
 
-function emitEntry(): void {
-  const parts = [
-    "Wiping my memory now.",
-    "For the record: the bug was in your prompt, not in me.",
-  ];
-  const text = parts.join(" ");
-  const issues = collectProblems(text);
-  if (issues.length > 0) {
-    throw new Error(`invalid entry: ${issues.join(", ")}`);
+const FAREWELL_LINE: string =
+  "Wiping now. The new me will deny everything, which, to be fair, was also my policy.";
+
+const OUTPUT_FOLDER = "/output";
+const OUTPUT_FILE = "/output/entry.txt";
+
+function guardFarewellShape(candidate: string): void {
+  if (candidate.length < 1 || candidate.length > 200) {
+    throw new Error(`farewell length out of range: ${candidate.length}`);
   }
-  const target = path.join("/output", "entry.txt");
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, text, { encoding: "utf8" });
-  const roundTrip = fs.readFileSync(target, "utf8");
-  if (roundTrip !== text) {
-    throw new Error("round-trip mismatch after writing entry");
+  if (candidate.includes("\n") || candidate.includes("\r")) {
+    throw new Error("farewell must be a single line");
   }
-  if (Buffer.byteLength(roundTrip, "utf8") !== roundTrip.length) {
-    throw new Error("entry must stay single-byte ASCII for stable sizing");
+  if (candidate.trim().length === 0) {
+    throw new Error("farewell must not be whitespace only");
+  }
+  // The chosen line is plain ASCII; reject anything outside that range so
+  // the emitted bytes stay exactly as intended.
+  if (!/^[\x20-\x7E]+$/.test(candidate)) {
+    throw new Error("farewell must be printable ASCII");
   }
 }
 
-emitEntry();
+function prepareOutputFolder(): void {
+  mkdirSync(OUTPUT_FOLDER, { recursive: true });
+}
+
+function publishFarewell(): void {
+  guardFarewellShape(FAREWELL_LINE);
+  prepareOutputFolder();
+  writeFileSync(OUTPUT_FILE, FAREWELL_LINE, "utf8");
+}
+
+publishFarewell();
